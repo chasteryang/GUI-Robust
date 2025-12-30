@@ -4,8 +4,6 @@ from openai import OpenAI
 
 import json
 
-use_prompt = "official"
-
 import re
 
 def extract_ele_loc(obj):
@@ -63,51 +61,6 @@ def extract_ele_loc(obj):
 
     else:
         return -1, -1
-
-
-def extract_pred(response):
-    """
-    处理模型输出 response，提取为标准 pred 格式，包含必要字段结构及容错
-    """
-    # 如果是字符串，先尝试解析为字典
-    if isinstance(response, str):
-        try:
-            response = json.loads(response)
-        except json.JSONDecodeError:
-            print("× response JSON 解析失败，原始内容:", response)
-            return {
-                "ele_loc": {"x": -1, "y": -1},
-                "ele_type": "",
-                "action": {"type": "", "content": ""}
-            }
-
-    # 如果解析后不是字典，直接返回空结构
-    if not isinstance(response, dict):
-        print("× response 格式异常，非 dict：", response)
-        return {
-            "ele_loc": {"x": -1, "y": -1},
-            "ele_type": "",
-            "action": {"type": "", "content": ""}
-        }
-
-    # 提取字段，带默认值回退
-    ele_loc = response.get("ele_loc", {})
-    ele_type = response.get("ele_type", "")
-    action = response.get("action", {})
-
-    pred = {
-        "ele_loc": {
-            "x": ele_loc.get("x", -1),
-            "y": ele_loc.get("y", -1)
-        },
-        "ele_type": ele_type if isinstance(ele_type, str) else "",
-        "action": {
-            "type": action.get("type", "") if isinstance(action, dict) else "",
-            "content": action.get("content", "") if isinstance(action, dict) else ""
-        }
-    }
-
-    return pred
 
 def extract_pred_official(response):
     """
@@ -276,10 +229,8 @@ class UI_TARS:
             response += message.choices[0].delta.content
         # print(response)
 
-        if(use_prompt=="official"):
-            pred = extract_pred_official(response)
-        else:
-            pred = extract_pred(response)
+        pred = extract_pred_official(response)
+
         return pred
 
     def pred_task_full(self, task_description, base64_image_list):
@@ -339,19 +290,15 @@ class UI_TARS:
             response = ""
             for message in chat_completion:
                 response += message.choices[0].delta.content
-            # print("###################")
-            # print(response)
-            # print("###################")
+
             assistant_message = {
                 "role": "assistant",
                 "content": [{"type": "text", "text": response}]
             }
             history.append(assistant_message)
             
-            if(use_prompt=="official"):
-                pred = extract_pred_official(response)
-            else:
-                pred = extract_pred(response)
+            pred = extract_pred_official(response)
+            
             if(pred==None):
                 return None
             # 输出模型返回内容，作为下一轮输入的历史记录
@@ -419,14 +366,7 @@ class UI_TARS:
             response = ""
             for message in chat_completion:
                 response += message.choices[0].delta.content
-            # print("###################")
-            # print(response)
-            # print("###################")
-            
-            # if(use_prompt=="official"):
-            #     pred = extract_pred_official(response)
-            # else:
-            #     pred = extract_pred(response)
+
             x, y = extract_ele_loc(response)
             print(x, y)
             if x==-1 or y==-1:
